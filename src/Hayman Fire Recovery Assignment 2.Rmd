@@ -1,11 +1,12 @@
 ---
 title: "Hayman Fire Recovery"
 author: "Matthew Ross"
-date: "10/3/2019"
+date: "`r.Sys()`"
 output: html_document
 ---
 
 ```{r setup, warning=F,message=F}
+
 library(tidyverse)
 library(tidyr)
 library(ggthemes)
@@ -21,10 +22,11 @@ knitr::opts_knit$set(root.dir='..')
 ```{r dataread, warning=F,message=F}
 ####-----Reading in Data and Stacking it ----- ####
 #Reading in files
-files <- list.files('data',full.names=T)
+files <- list.files('../data',full.names=T)
 
 
 #Read in individual data files
+
 ndmi <- read_csv(files[1]) %>% 
   rename(burned=2,unburned=3) %>%
   mutate(data='ndmi')
@@ -43,10 +45,7 @@ full_long <- rbind(ndvi,ndmi,ndsi) %>%
   gather(key='site',value='value',-DateTime,-data) %>%
   filter(!is.na(value))
 
-
 ```
-
-
 
 
 ## Question 1) 
@@ -57,7 +56,21 @@ function "spread" and then make a plot that shows the correlation s a
 function of if the site was burned or not (x axis should be ndmi)
 You should exclude winter months and focus on summer months
 
+```{r}
+# Spread the dataset
+full_short <- spread(full_long, data, value) %>%
+  mutate(month = month(DateTime)) %>%
+  filter(month %in% c(5,6,7,8,9))
 
+#used mutate to only have growing months
+
+#use ggplot to make a graph with ndmi on x axis
+ggplot(full_short,aes(x = ndmi, y= ndvi, color = site)) +
+  geom_point()+
+  theme_few()+
+  scale_color_colorblind()
+```
+Based on the ndmi vs ndmi analysis, it can be seen that there is a greater variability in values for the burned sites. This larger range shows that there are many sites with lower ndmi and ndvi values during the growing season after burn. 
 
 ## Question 2 
 
@@ -65,25 +78,66 @@ You should exclude winter months and focus on summer months
  snow index) for January - April and average NDVI for June-August?
 In other words, does the previous year's snow cover influence vegetation
  growth for the following summer?
+# Use facet_wrap to plot ndsi and ndvi next to each other
+```{r}
+new_ndsi <- ndsi %>%
+  mutate(month = month(DateTime)) %>%
+  filter(month %in% c(1,2,3,4)) %>%
+  rename(burned=2,unburned=3) %>%
+  mutate(data='ndsi') %>%
+  filter(!is.na(burned)) %>%
+  filter (!is.na(unburned))
+           
+new_ndvi <- ndvi %>%
+  mutate(month = month(DateTime)) %>%
+  filter(month %in% c(6,7,8)) %>%
+  rename(burned=2,unburned=3) %>%
+  mutate(data='ndvi') %>%
+  filter(!is.na(burned)) %>%
+  filter (!is.na(unburned))
 
 
+comp <- rbind(new_ndsi, new_ndvi) 
+again <- pivot_longer(comp,cols =c(burned,unburned), names_to = "status", values_to = "Values")
+#a <- ggplot(again, aes(x=DateTime, y=Values, color = data)) +
+  geom_point() 
+#a + facet_grid(rows = vars(status))
+
+b <- full_long %>% mutate(site_type = ifelse((site == 'unburned'),'Site 1: unburned',ifelse((year(DateTime) >= 2002), 'Site 2: post burn', 'Site 2: pre burn')))
+
+s <- spread(b, data, value)
+
+ggplot(s, aes(x = ndsi, y = ndvi, color = site_type)) +
+  geom_point()
+
+
+```
+Figure 3 shows 
 ## Q3
 
 How is the snow effect from question 2 different between pre- and post-burn
 and burned and unburned? 
+The pre-burn and unburned sites have a similar trend in ndsi and ndmi values. However, the post-burn sites have lower ndsi and ndmi values. This means that there is less vegetation present, and less persistence of snow. Ultimately, the snow decreases in areas that have been burned.
 
 
 ## Question 4
 
 What month is the greenest month on average? 
+```{r}
+g <- spread(full_long, data, value) %>%
+  mutate(month = month(DateTime))
+aggregate(ndvi~month, g, mean)
 
-
-
+```
+The month with the highest ndvi value is August, with a value of 0.3871568 This means that August is the greenest month. 
 
 ## Question 5) 
 
 What month is the snowiest on average?
-
+```{r}
+aggregate(ndsi~month, g, mean)
+```
+The snowiest month is January, which has a positive ndsi value of 0.2099584. Other than December and February, the ndsi is negative, meaning there is a loss of snow rather than accumulation. 
 
 ## Bonus Question: Redo all problems with `spread` and `gather` using modern tidyverse syntax. 
 
